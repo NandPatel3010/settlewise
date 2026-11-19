@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eef3f1">
+  <title>SettleWise</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/ui.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="SettleWise home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Settle<span>Wise</span><small>PAYOUT WORKSPACE</small></span>
+      </a>
+      <nav aria-label="Workspace">
+        <button class="nav active" data-view="overview"><span aria-hidden="true">▦</span> Overview</button>
+        <button class="nav" data-view="review"><span aria-hidden="true">◇</span> Review queue <b id="review-count">0</b></button>
+        <button class="nav" data-view="imports"><span aria-hidden="true">⇥</span> Imports</button>
+      </nav>
+      <div class="sidebar-foot">
+        <label for="workspace">Workspace</label>
+        <select id="workspace"><option value="demo">Sample data</option><option value="local">My ledger</option></select>
+        <div class="local-pill"><span></span> Local database</div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topline">
+        <span class="eyebrow">PAYMENTS / <span id="crumb">OVERVIEW</span></span>
+        <div class="actions">
+          <label class="sr-only" for="currency">Currency</label>
+          <select id="currency"><option>CAD</option><option>USD</option></select>
+          <button class="button primary" id="open-import"><span aria-hidden="true">+</span> Import CSV</button>
+        </div>
+      </header>
+      <div id="content" aria-busy="true"><section class="empty">Opening the local ledger…</section></div>
+    </main>
+  </div>
+
+  <dialog id="dialog" aria-labelledby="dialog-title">
+    <div class="dialog-head">
+      <div><div class="eyebrow" id="dialog-eyebrow"></div><h2 id="dialog-title"></h2></div>
+      <button class="icon-button" id="close-dialog" aria-label="Close dialog" type="button">×</button>
+    </div>
+    <div id="dialog-body"></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
