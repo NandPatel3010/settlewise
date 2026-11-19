@@ -1,0 +1,12 @@
+bank_id,posted_on,currency,amount,payout_reference,description
+BK-1041,2026-11-18,CAD,2870.45,PO-1041,Processor settlement
+BK-1038,2026-11-16,CAD,1245.80,,Processor settlement
+BK-1036,2026-11-14,CAD,689.20,,Processor settlement
+BK-1037,2026-11-14,CAD,689.20,,Unlabelled credit
+BK-1034,2026-11-12,CAD,507.10,PO-1034,Processor settlement
+BK-1033,2026-11-10,CAD,965.00,PO-1033,Processor settlement
+BK-1031,2026-11-09,CAD,328.65,PO-1031,Processor settlement
+BK-1029,2026-11-07,CAD,220.00,PO-1029,Processor settlement
+BK-1025,2026-11-04,CAD,1310.55,PO-1025,Processor settlement
+BK-1022,2026-11-03,CAD,755.75,PO-1022,Processor settlement
+BK-1020,2026-11-02,CAD,1680.00,PO-1020,Processor settlement
