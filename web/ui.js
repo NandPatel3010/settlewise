@@ -176,7 +176,7 @@ function payoutRows(rows, useFilters) {
   return `<div class="table-wrap"><table><thead><tr><th>Payout</th><th>Expected</th><th>Net amount</th><th>Bank deposit</th><th>Status</th></tr></thead>
     <tbody>${items.map(({payout, bank, status, method}) => `<tr>
       <td><button class="link-button" data-payout="${encode(payout.id)}">${encode(payout.id)} <span aria-hidden="true">↗</span></button>
-      ${method ? `<small>${{reference: "Reference match", amount_date: "Amount and date", manual: "Manually confirmed"}[method]}</small>` : ""}</td>
+      ${method ? `<small>${{reference: "Reference match", manual: "Manually confirmed"}[method]}</small>` : ""}</td>
       <td>${day(payout.date)}</td><td class="amount">${money(payout.amount)}</td>
       <td>${bank ? `${encode(bank.id)}<small>${day(bank.date)}</small>` : "—"}</td><td>${badge(status)}</td>
     </tr>`).join("")}</tbody></table></div>
@@ -288,7 +288,8 @@ function payoutDialog(row) {
     <p class="notice">${encode(row.reason)}</p>
     ${bank ? `<div class="candidate"><div><b>${encode(bank.id)}</b><small>Posted ${day(bank.date)}</small></div><b>${money(bank.amount)}</b></div>` : ""}
     ${row.method === "manual" ? `<div class="actions"><button class="button small" data-reopen="${encode(bank.id)}" data-target="${encode(payout.id)}">Undo confirmation</button></div>` : ""}
-    ${candidates.map((item) => `<div class="candidate"><div><b>${encode(item.id)}</b><small>${day(item.date)} · ${money(item.amount, item.currency)} ${encode(item.currency)}</small></div>
+    ${candidates.map((item) => `<div class="candidate"><div><b>${encode(item.id)}</b><small>${day(item.date)} · ${money(item.amount, item.currency)} ${encode(item.currency)}</small>
+      ${item.description ? `<small>${encode(item.description)}</small>` : ""}</div>
       ${item.amount === payout.amount && item.currency === payout.currency ? `<button class="button small" data-confirm="${encode(item.id)}" data-target="${encode(payout.id)}">Confirm match</button>` : '<small>Amount or currency differs</small>'}</div>`).join("")}
     ${row.candidate_count > candidates.length ? `<form class="form candidate" data-review-form="${encode(payout.id)}">
       <label for="candidate-id">Showing ${candidates.length} of ${row.candidate_count} candidates. Confirm another by bank ID.</label>
