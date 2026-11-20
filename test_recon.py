@@ -83,7 +83,7 @@ class ReconciliationTests(unittest.TestCase):
             import_csv(self.path, "bank", "wrong.csv", "id,amount\n1,22\n")
         self.assertEqual(state(self.path)["bank_count"], 0)
 
-    def test_mutual_uniqueness_prevents_double_assignment(self):
+    def test_manual_confirmation_prevents_double_assignment(self):
         self.take("bank", "B-1,2026-11-08,CAD,220.00,,Deposit")
         self.take(
             "payouts", "P-1,2026-11-07,CAD,220,0,0,0", "P-2,2026-11-08,CAD,220,0,0,0"
@@ -91,6 +91,9 @@ class ReconciliationTests(unittest.TestCase):
         result = state(self.path)
         self.assertEqual([row["status"] for row in result["payouts"]], ["review", "review"])
         self.assertEqual(len(result["unmatched"]), 1)
+        confirm(self.path, "P-1", "B-1")
+        with self.assertRaises(ConflictError):
+            confirm(self.path, "P-2", "B-1")
 
     def test_confirm_and_reopen_are_idempotent_and_audited(self):
         self.take("bank", "B-1,2026-11-08,CAD,220,,One", "B-2,2026-11-08,CAD,220,,Two")
@@ -123,12 +126,56 @@ class ReconciliationTests(unittest.TestCase):
         confirm(self.path, "P-1", "B-29")
         self.assertEqual(state(self.path)["payouts"][0]["bank"]["id"], "B-29")
 
-    def test_auto_matching_respects_currency_and_date(self):
+    def test_amount_date_candidates_respect_currency_and_inclusive_window(self):
         self.take("bank", "B-1,2026-11-05,CAD,220,,Too early", "B-2,2026-11-09,USD,220,,USD")
         self.take("payouts", "P-1,2026-11-09,CAD,220,0,0,0")
         self.assertEqual(state(self.path)["payouts"][0]["status"], "waiting")
         self.take("bank", "B-3,2026-11-12,CAD,220,,Three days late")
-        self.assertEqual(state(self.path)["payouts"][0]["bank"]["id"], "B-3")
+        row = state(self.path)["payouts"][0]
+        self.assertEqual((row["status"], row["bank"]), ("review", None))
+        self.assertEqual([candidate["id"] for candidate in row["candidates"]], ["B-3"])
+
+    def test_unrelated_deposit_with_same_amount_and_date_is_not_auto_matched(self):
+        self.take("bank", "B-1,2026-11-08,CAD,220.00,,Customer EFT transfer")
+        self.take("payouts", "P-1,2026-11-08,CAD,220,0,0,0")
+        row = state(self.path)["payouts"][0]
+        self.assertEqual((row["status"], row["bank"], row["method"]), ("review", None, None))
+        self.assertEqual(row["candidate_count"], 1)
+        self.assertEqual(row["candidates"][0]["description"], "Customer EFT transfer")
+
+    def test_single_candidate_can_be_confirmed_and_reopened(self):
+        self.take("bank", "B-1,2026-11-08,CAD,220,,Deposit")
+        self.take("payouts", "P-1,2026-11-08,CAD,220,0,0,0")
+        confirm(self.path, "P-1", "B-1")
+        row = state(self.path)["payouts"][0]
+        self.assertEqual((row["status"], row["method"], row["bank"]["id"]), ("matched", "manual", "B-1"))
+        reopen(self.path, "P-1", "B-1")
+        self.assertEqual(state(self.path)["payouts"][0]["status"], "review")
+
+    def test_public_payout_with_synthetic_bank_rows(self):
+        # Open Collective expense #286374 paid USD 300.00 by bank transfer on 2026-03-10.
+        # The public record gives the payment date. Both bank-side rows and their posting dates are synthetic.
+        self.take("payouts", "OC-286374,2026-03-10,USD,300.00,0,0,0")
+        self.take("bank", "B-1,2026-03-10,USD,300.00,,Unrelated deposit")
+        row = state(self.path)["payouts"][0]
+        self.assertEqual((row["status"], row["bank"]), ("review", None))
+        self.take("bank", "B-2,2026-03-12,USD,300.00,OC-286374,Synthetic deposit")
+        row = state(self.path)["payouts"][0]
+        self.assertEqual((row["status"], row["method"], row["bank"]["id"]), ("matched", "reference", "B-2"))
+        self.assertEqual([bank["id"] for bank in state(self.path)["unmatched"]], ["B-1"])
+
+    def test_duplicate_exact_references_go_to_review(self):
+        self.take("bank", "B-1,2026-11-08,CAD,220,P-1,First", "B-2,2026-11-10,CAD,220,P-1,Second")
+        self.take("payouts", "P-1,2026-11-08,CAD,220,0,0,0")
+        row = state(self.path)["payouts"][0]
+        self.assertEqual((row["status"], row["candidate_count"], row["bank"]), ("review", 2, None))
+
+    def test_split_and_combined_deposits_stay_open(self):
+        self.take("bank", "B-1,2026-11-08,CAD,50,,Partial", "B-2,2026-11-08,CAD,170,,Partial",
+                  "B-3,2026-11-08,CAD,475,,Combined")
+        self.take("payouts", "P-1,2026-11-08,CAD,220,0,0,0", "P-2,2026-11-08,CAD,225,0,0,0",
+                  "P-3,2026-11-08,CAD,250,0,0,0")
+        self.assertEqual([row["status"] for row in state(self.path)["payouts"]], ["waiting"] * 3)
 
     def test_late_report_matches_existing_deposit(self):
         self.take("bank", "B-1,2026-11-08,CAD,220,P-1,Deposit")

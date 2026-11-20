@@ -5,7 +5,7 @@ import io
 import json
 import re
 import sqlite3
-from collections import Counter, defaultdict
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -218,7 +218,6 @@ def reconcile(banks, payouts, decisions):
             by_amount_day[bank["currency"], bank["amount"], bank["date"]].append(bank_id)
 
     options = {}
-    demand = Counter()
     for payout_id, payout in payouts.items():
         if payout_id in decisions:
             continue
@@ -229,7 +228,7 @@ def reconcile(banks, payouts, decisions):
                 if same_value(banks[bank_id], payout)
             ]
             # Every explicitly referenced deposit is evidence, including mismatches.
-            options[payout_id] = (len(refs), refs[:CANDIDATE_PREVIEW], None, len(eligible) != len(refs))
+            options[payout_id] = (len(refs), refs[:CANDIDATE_PREVIEW], len(eligible) != len(refs))
             continue
         day = date.fromisoformat(payout["date"])
         # Count by day instead of materializing every payout/deposit pair.
@@ -237,38 +236,36 @@ def reconcile(banks, payouts, decisions):
             (payout["currency"], payout["amount"], (day + timedelta(days=offset)).isoformat())
             for offset in range(-WINDOW_DAYS, WINDOW_DAYS + 1)
         ]
-        candidate_count, preview, only_key = 0, [], None
+        candidate_count, preview = 0, []
         for key in keys:
             group = by_amount_day.get(key)
             if group:
-                demand[key] += 1
                 candidate_count += len(group)
                 preview.extend(group[:CANDIDATE_PREVIEW - len(preview)])
-                only_key = key
-        options[payout_id] = (candidate_count, preview, only_key, False)
+        options[payout_id] = (candidate_count, preview, False)
 
     output = []
     for payout_id, payout in payouts.items():
         refs = referenced.get(payout_id, [])
-        candidate_count, candidates, key, mismatch = options.get(payout_id, (0, [], None, False))
+        candidate_count, candidates, mismatch = options.get(payout_id, (0, [], False))
         bank_id = decisions.get(payout_id)
         reason = "Confirmed in review."
         method = "manual" if bank_id else None
-        if not bank_id and candidate_count == 1 and not mismatch and (refs or demand[key] == 1):
+        if not bank_id and refs and candidate_count == 1 and not mismatch:
             bank_id = candidates[0]
-            method = "reference" if refs else "amount_date"
-            reason = "Exact payout reference, amount and currency." if refs else (
-                "Unique amount and currency match within three days."
-            )
+            method = "reference"
+            reason = "Exact payout reference, amount and currency."
 
         if bank_id:
             status = "matched"
         elif candidate_count:
             status = "review"
-            reason = (
-                "Referenced deposits disagree on amount or currency."
-                if mismatch else "Multiple possible matches. Review before confirming."
-            )
+            if mismatch:
+                reason = "Referenced deposits disagree on amount or currency."
+            elif refs:
+                reason = "Multiple deposits carry this payout reference. Review before confirming."
+            else:
+                reason = "Amount and date suggest a possible match. Verify the deposit before confirming."
         else:
             status = "waiting"
             reason = "No matching deposit in the imported statement."

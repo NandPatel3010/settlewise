@@ -33,9 +33,13 @@ def workload(size):
         sales = f"{cents // 100 + 10}.{cents % 100:02}"
         payouts.append((payout, day, "CAD", sales, "8", "2", "0"))
         pattern = index % 10
-        if pattern <= 6:
-            banks.append((bank, day, "CAD", net, payout if pattern < 6 else "", "Deposit"))
+        if pattern < 6:
+            banks.append((bank, day, "CAD", net, payout, "Deposit"))
             truth[payout] = ("matched", bank)
+        elif pattern == 6:
+            description = "Unrelated transfer" if (index // 10) % 2 else "Deposit"
+            banks.append((bank, day, "CAD", net, "", description))
+            truth[payout] = ("review", None)
         elif pattern == 7:
             for suffix in ("A", "B"):
                 banks.append((f"{bank}-{suffix}", day, "CAD", net, "", "Deposit"))

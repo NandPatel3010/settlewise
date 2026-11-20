@@ -1,6 +1,6 @@
 # SettleWise
 
-A local workspace for tying payment-processor payouts to bank deposits. Open a payout to see its sales, refunds, fees, and adjustments. Review ambiguous matches and amount discrepancies before counting them as reconciled.
+A local workspace for tying payment-processor payouts to bank deposits. Open a payout to see its sales, refunds, fees, and adjustments. Review deposits without a payout reference, ambiguous matches, and discrepancies before counting them as reconciled.
 
 ## Run it
 
@@ -43,7 +43,7 @@ Use stable, source-specific IDs and ISO dates (`YYYY-MM-DD`). Deposit amounts mu
 ## Matching and recovery rules
 
 1. An exact payout reference can match only one bank row and must agree on both amount and currency. A discrepancy or multiple deposits with the same reference goes to review.
-2. For deposits without a reference, the same amount and currency must be unique on both sides within three calendar days of the expected date. Later imports can change an automatic match if they create an ambiguity.
+2. Deposits without a reference are suggested for review when their amount and currency match and their posting date is within three calendar days of the expected date. Even a single candidate needs confirmation because an unrelated deposit can have the same amount and date.
 3. A manual confirmation reserves one deposit for one payout. Confirmations and undo actions are recorded in the same database transaction that changes the decision.
 4. Import batches and new rows commit together. Repeated rows are identified by source ID and normalized data. If any known ID arrives with conflicting data, the whole batch rolls back. A process crash before commit leaves the file safe to retry.
 
@@ -58,20 +58,20 @@ python -m unittest -v
 python benchmark.py --payouts 5000
 ```
 
-A repeatable synthetic run used 5,000 bank rows and 5,000 payouts. It included exact references, unique amount/date matches, duplicate-looking deposits, known discrepancies, and missing deposits.
+A repeatable synthetic run used 5,000 bank rows and 5,000 payouts. It included exact references, unreferenced same-amount deposits, duplicate-looking deposits, known discrepancies, and missing deposits.
 
 | Result | Observed |
 | --- | ---: |
-| Correctly matched payouts | 3,500 |
-| Payouts sent to review | 1,000 |
+| Payouts matched by reference | 3,000 |
+| Payouts sent to review | 1,500 |
 | Payouts awaiting a deposit | 500 |
 | Incorrect outcomes against labeled fixtures | 0 |
 | Rows skipped when both files were reimported | 10,000 |
 | Rows left when the import process exited before commit | 0 |
-| Bank reimport after the crash, single local run | 78.5 ms |
-| Reconciliation snapshot, single local run | 60.1 ms |
 
-The 14 tests cover matching, API request handling, process termination mid-import, overlapping retries, row conflicts, and the review workflow. Benchmark runtimes depend on the machine and workload.
+The tests cover matching, API request handling, process termination mid-import, overlapping retries, row conflicts, and the review workflow. The benchmark compares both status and deposit ID against the expected results for its generated data.
+
+One regression test uses the reported USD 300 bank payout from [Open Collective expense #286374](https://opencollective.com/json-schema/expenses/286374). It uses the payment date as the expected date and pairs the normalized payout with synthetic bank rows to test candidate review and exact-reference matching. The recipient bank statement was unavailable.
 
 ## Source layout
 
