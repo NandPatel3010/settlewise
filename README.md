@@ -56,18 +56,19 @@ The app binds to loopback and keeps entries under `data/` by default. It uses lo
 ```sh
 python -m unittest -v
 python benchmark.py --payouts 5000
+python benchmark.py --payouts 10000
 ```
 
-A repeatable synthetic run used 5,000 bank rows and 5,000 payouts. It included exact references, unreferenced same-amount deposits, duplicate-looking deposits, known discrepancies, and missing deposits.
+Both runs used labeled synthetic data covering exact references, unreferenced same-amount deposits, duplicate-looking deposits, known discrepancies, and missing deposits. The larger run processed **20,000 total rows** across 10,000 payouts and 10,000 bank rows.
 
-| Result | Observed |
-| --- | ---: |
-| Payouts matched by reference | 3,000 |
-| Payouts sent to review | 1,500 |
-| Payouts awaiting a deposit | 500 |
-| Incorrect outcomes against labeled fixtures | 0 |
-| Rows skipped when both files were reimported | 10,000 |
-| Rows left when the import process exited before commit | 0 |
+| Result | 5,000 payouts + 5,000 bank rows | 10,000 payouts + 10,000 bank rows |
+| --- | ---: | ---: |
+| Payouts matched by reference | 3,000 | 6,000 |
+| Payouts sent to review | 1,500 | 3,000 |
+| Payouts awaiting a deposit | 500 | 1,000 |
+| Incorrect outcomes against labeled fixtures | 0 | 0 |
+| Rows skipped on re-import | 10,000 | 20,000 |
+| Partial rows after an interrupted import | 0 | 0 |
 
 The tests cover matching, API request handling, process termination mid-import, overlapping retries, row conflicts, and the review workflow. The benchmark compares both status and deposit ID against the expected results for its generated data.
 
